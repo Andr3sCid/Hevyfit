@@ -16,6 +16,10 @@ Cada carpeta mantiene su propio `pom.xml`/`package.json`/`pubspec.yaml` y `.giti
 
 > Nota histórica: hasta el 2026-09-23 cada carpeta fue un repositorio independiente bajo una organización de GitHub (naming `hevyfit-{repositorio}`). Esos repos (y un Project/milestones de prueba en `hevyfit-docs`) se dejaron intactos como respaldo, sin usarse activamente.
 
+## Documentación del proyecto (`.claude/docs`)
+
+`.claude/docs` guarda documentación de referencia para el desarrollo (decisiones de diseño, notas técnicas, especificaciones, etc.) que por su tamaño o naturaleza no tiene sentido meter directamente en este `CLAUDE.md`. El roadmap de HU/tareas sigue viviendo en GitHub Issues/Project (ver sección "Roadmap"), no acá.
+
 ## Stack tecnológico
 
 | Componente | Tecnología | Notas |
@@ -80,7 +84,9 @@ docker run -d --name hevyfit-postgres -e POSTGRES_USER=hevyfit -e POSTGRES_PASSW
 
 ## `hevyfit-common`
 
-Librería Java/Maven consumida únicamente por las dos APIs (no por los frontends). Por ahora se instala localmente (`mvn install`, queda en el `.m2` de cada desarrollador) y se versiona con SemVer manual (MAJOR.MINOR.PATCH). No se publica en un registro remoto (GitHub Packages u otro) mientras el proyecto sea de desarrollo local/portfolio; se reevaluará si en el futuro hace falta CI o colaboración externa.
+Librería Java/Maven consumida únicamente por las dos APIs (no por los frontends). Por ahora se instala localmente (`mvn install`, queda en el `.m2` de cada desarrollador). No se publica en un registro remoto (GitHub Packages u otro) mientras el proyecto sea de desarrollo local/portfolio; se reevaluará si en el futuro hace falta CI o colaboración externa.
+
+**Versionado (decisión 2026-09-30):** se mantiene fijo en `0.x.x-SNAPSHOT` a propósito, sin bumpear SemVer manualmente — en un monorepo de un solo historial no hay "drift" entre consumidores que versionar, y nada lo lee todavía; se formaliza recién si algún día hay registro remoto o CI que lo consuma.
 
 ## Autenticación
 

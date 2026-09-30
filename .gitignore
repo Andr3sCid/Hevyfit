@@ -1,1 +1,10 @@
 .vscode/
+
+postman
+postman/**
+
+.postman
+
+.remember
+
+AGENTS.md
