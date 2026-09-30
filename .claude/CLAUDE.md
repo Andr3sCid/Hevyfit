@@ -25,29 +25,35 @@ Cada carpeta mantiene su propio `pom.xml`/`package.json`/`pubspec.yaml` y `.giti
 | Mobile | Flutter | Codebase único Dart para Android/iOS (solo esas plataformas; org `com.hevyfit`, paquete Dart `hevyfit_mobile`). Lint con `flutter analyze` (`flutter_lints`), formateo con `dart format` |
 | Librería compartida | Java/Maven (`hevyfit-common`) | Instalación local (`mvn install`); las APIs la consumen como dependencia Maven normal desde el `.m2` local |
 | Base de datos | PostgreSQL | Una instancia local (Docker), con **una base de datos por servicio** (`hevyfit_measurements`, `hevyfit_routines`) |
-| Autenticación | JWT propio | Servicio de auth a medida (sin IDP externo) |
+| Autenticación | JWT propio | Access token + refresh token, servicio de auth a medida (sin IDP externo) |
 | CI/CD | Ninguno por ahora | Solo desarrollo local; se evaluará más adelante |
 
 ## Módulos funcionales
 
 ### 1. Mediciones corporales (`hevyfit-api-measurements`)
-- IMC
-- % de grasa corporal
-- % de masa magra
-- FFMI (índice de masa libre de grasa)
-- Historial de mediciones
-- Estimaciones de progreso a futuro en base a la tendencia
+- IMC, % de grasa corporal, % de masa magra, FFMI (índice de masa libre de grasa).
+- Historial de mediciones; estimaciones de progreso a futuro en base a la tendencia.
+- **Cálculos persistidos, no al vuelo:** cada medición guarda sus derivados (IMC, % y kg de masa magra, masa grasa, FFMI, % de grasa), la altura usada en ese momento y una `formula_version` (para no invalidar mediciones viejas si cambia una fórmula).
+- **Editar/borrar una medición antigua** recalcula esa fila y **regenera los snapshots posteriores** (tendencia, proyección y calorías), todo en la misma transacción.
+- **% de grasa corporal automático** (no manual, al menos en el MVP): método US Navy, usa cuello, cintura y cadera (esta última solo en mujeres).
+- **Circunferencias registradas en cada medición:** cuello, pecho, cintura, cadera, brazos, antebrazos, muslos y pantorrillas (las que no entran en la fórmula igual se guardan para seguimiento de evolución).
+- Tendencia y proyección también se guardan como snapshot en cada medición nueva (no se recalculan on-the-fly al consultar).
 
 ### 2. Calorías (`hevyfit-api-measurements`)
-- Estimación de gasto calórico en base a las mediciones (peso, % grasa/masa magra)
-- Proyección de cuánto peso/grasa se ganaría o perdería según el objetivo calórico definido
+- Estimación de gasto calórico (TDEE) en base a las mediciones (peso, % grasa/masa magra).
+- Proyección de cuánto peso/grasa se ganaría o perdería según el objetivo calórico definido.
+- Igual que mediciones: se persiste un snapshot (TDEE, objetivo, proyección) en cada cambio relevante (medición nueva o cambio de objetivo), no se calcula al vuelo.
 
 > Este módulo vive dentro de `hevyfit-api-measurements` porque sus cálculos dependen directamente de los datos de mediciones corporales (peso, % grasa, % masa magra), evitando así una llamada entre servicios para cada estimación.
 
 ### 3. Rutinas de ejercicio (`hevyfit-api-routines`)
-- Distintos tipos de rutina
-- Bloques (ej. bloque de fuerza, bloque de hipertrofia)
-- Series y repeticiones dentro de cada bloque
+- Distintos tipos de rutina; bloques (ej. bloque de fuerza, bloque de hipertrofia); series y repeticiones dentro de cada bloque.
+- **Catálogo de ejercicios:** precargado (con categorías) más ejercicios propios del usuario. El diseño debe dejar abierta la posibilidad de un **maestro de ejercicios administrable** más adelante (no se implementa todavía, solo se diseña para no cerrar esa puerta).
+
+### Multiusuario e idioma
+- **Multiusuario** con registro y login (no es una app single-user). `hevyfit-api-routines` guarda solo el `userId` del claim `sub` del JWT, **sin llave foránea** hacia la base de `measurements` (son bases separadas).
+- **Tokens:** access token + refresh token (no solo access token). Ambos los emite `hevyfit-api-measurements`; el detalle de expiración/rotación se define al abrir H1.
+- **Unidades e idioma:** sistema métrico; UI en español por defecto, con el diseño abierto a multidioma (ver H0.3 en el roadmap de GitHub).
 
 ## Entorno local de PostgreSQL
 
@@ -78,11 +84,12 @@ Librería Java/Maven consumida únicamente por las dos APIs (no por los frontend
 
 ## Autenticación
 
-Auth propia basada en JWT (sin IDP externo tipo Keycloak/Auth0), repartida así:
+Auth propia basada en JWT (sin IDP externo tipo Keycloak/Auth0), con **access token + refresh token**, repartida así:
 
-- **Emisión de tokens** (`/login`, credenciales, gestión de usuario): vive dentro de `hevyfit-api-measurements`.
+- **Emisión de tokens** (`/login`, registro, credenciales, gestión de usuario, refresh/rotación): vive dentro de `hevyfit-api-measurements`.
 - **Generación/validación de JWT** (código compartido: firmar, leer claims, validar expiración/firma): vive en `hevyfit-common`.
-- **`hevyfit-api-routines`** no emite tokens; solo los valida usando el código compartido de `hevyfit-common`, confiando en los tokens emitidos por `hevyfit-api-measurements`.
+- **`hevyfit-api-routines`** no emite tokens; solo los valida usando el código compartido de `hevyfit-common`, confiando en los tokens emitidos por `hevyfit-api-measurements`, y guarda solo el `userId` del claim `sub` (ver "Multiusuario e idioma" arriba).
+- El detalle fino (expiración de cada token, estrategia de rotación/revocación del refresh token, dónde se guarda en la web) se define al abrir H1 (issue #7 en GitHub).
 
 ## Roadmap (plano general)
 
@@ -96,12 +103,25 @@ El roadmap vive en GitHub: **Project "HevyFit Roadmap"** (https://github.com/use
 
 Etiquetas usadas: `definicion-hu`, `historia-usuario`, `tarea`.
 
+**Estado actual (2026-09-30):** H0 está completamente detallado y cargado como issues #1–#6 (con criterios de aceptación). H1–H5 solo tienen su issue "Definir HU del hito" (#7–#11 respectivamente) creado; su detalle (HU, criterios de aceptación) todavía no se ha escrito y debe hacerse al abrir cada hito, usando como base las decisiones ya tomadas que están documentadas en este archivo (secciones "Módulos funcionales", "Multiusuario e idioma" y "Autenticación"). Próximo paso de trabajo: H0.1 (issue #2, formato de errores común).
+
 ## Credenciales y secretos
 
 **Regla general:** ningún archivo con credenciales reales se sube a un repositorio, ni siquiera de desarrollo — y desde el 2026-09-23 esta regla también aplica a **este mismo `.claude/CLAUDE.md`**, porque quedó versionado dentro del monorepo público `Andr3sCid/Hevyfit`. Solo pueden subirse archivos de ejemplo (`.env.example` o un `application.properties` que lea variables de entorno) sin secretos. Los valores reales viven en un `.env` local ignorado por git (uno por API, ver `.env.example` en cada carpeta).
 
 - En las APIs Quarkus, `application.properties` usa `${HEVYFIT_DB_USER}` y `${HEVYFIT_DB_PASSWORD}`; Quarkus lee el `.env` de la raíz de cada API (en dev y tests).
 - Historial (repos antiguos, ya no activos): la contraseña de desarrollo se subió por error en el commit inicial de `hevyfit-api-measurements` y `hevyfit-api-routines` en la organización GitHub anterior; se reescribió el historial y se hizo force push (2026-09-18) antes de migrar al monorepo.
+
+## Entorno local / herramientas
+
+Instaladas en esta máquina (Windows) durante el setup; el PATH de usuario ya las incluye, pero **una terminal abierta antes de instalar algo no lo ve hasta que se abre una nueva**:
+
+- **JDK 21+**: `C:\Program Files\Java\jdk-26.0.1` (`JAVA_HOME` seteado). El `pom.xml` compila con `maven.compiler.release=21` aunque el JDK instalado sea más nuevo.
+- **Maven 3.9.16**: `C:\Tools\apache-maven-3.9.16\bin`.
+- **Node 24 + pnpm 12**: ya en PATH.
+- **Flutter 3.47.4**: `C:\Users\andrew\develop\flutter\bin`.
+- **Docker Desktop**: `C:\Users\andrew\AppData\Local\Programs\DockerDesktop`. Se ha detenido solo más de una vez (ej. tras reiniciar Windows); si una API falla al conectar a Postgres, lo primero a revisar es si Docker Desktop sigue corriendo y el contenedor `hevyfit-postgres` está `Up` (`docker start hevyfit-postgres` si no).
+- **GitHub CLI (`gh`) 2.101.0**: `C:\Program Files\GitHub CLI\gh.exe`, autenticado como `Andr3sCid` con scopes `repo`, `project`, `workflow`, `read:org`, `gist`.
 
 ## Convenciones de git
 
