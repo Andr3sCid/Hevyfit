@@ -86,31 +86,15 @@ Auth propia basada en JWT (sin IDP externo tipo Keycloak/Auth0), repartida así:
 
 ## Roadmap (plano general)
 
-Plano general de hitos; el detalle (HU, fórmulas, decisiones técnicas) se define al abrir cada hito, no antes. Se gestiona como GitHub Project vinculado a `Andr3sCid/Hevyfit`, con un milestone por hito (H0–H6).
+El roadmap vive en GitHub: **Project "HevyFit Roadmap"** (https://github.com/users/Andr3sCid/projects/2) vinculado a `Andr3sCid/Hevyfit`, con un **milestone por hito (H0–H5)** y las HU/tareas como issues. No se mantiene un `.md` de roadmap en el repo para evitar tener dos fuentes de verdad desincronizadas.
 
-**Regla de compuerta:** cada hito abre con una tarea **"Definir HU del hito"** (historias de usuario con criterios de aceptación). Ninguna otra tarea del hito puede iniciarse hasta cerrarla.
+**Regla de compuerta:** cada hito abre con un issue "Definir HU del hito" (etiqueta `definicion-hu`); el resto de issues del hito no puede iniciarse hasta cerrarlo.
 
-| Hito | Tareas |
-|---|---|
-| **H0. Fundaciones** | Definir HU · Formato de errores común · CORS y health check · Base de i18n (web, mobile, mensajes de API) · Migraciones con Flyway (propuesta) |
-| **H1. Usuarios y auth** | Definir HU · Registro · Login con access + refresh token · Renovación de sesión · Logout (revocación) · JWT compartido en `hevyfit-common` y protección de endpoints · Web: login, registro, rutas protegidas y cliente OpenAPI |
-| **H2. Mediciones corporales** | Definir HU y fórmulas · Perfil · Registro de mediciones con cálculos persistidos · Historial · Edición/borrado con regeneración de snapshots posteriores · Tendencia y proyección persistidas · Web: formulario, historial, gráficos |
-| **H3. Calorías** | Definir HU y fórmulas · Estimación de gasto calórico · Objetivo y nivel de actividad · Proyección de peso y grasa · Web: objetivo y proyección |
-| **H4. Rutinas** | Definir HU · Catálogo de ejercicios precargado con categorías · Ejercicios propios · Diseño del maestro de ejercicios (solo diseño) · Rutinas y tipos · Bloques · Series y repeticiones · Web: editor |
-| **H5. Mobile (Flutter)** | Definir HU · Base (cliente API, navegación, i18n, tokens) · Autenticación · Mediciones · Calorías · Rutinas |
-| **H6. Endurecimiento** | Definir HU · Estrategia de tests · `docker-compose` · Evaluar CI/CD · Evaluar publicar `hevyfit-common` |
+**Cada hito es un incremento de punta a punta** (backend → web → mobile): mobile no es un hito aparte, sino la última tarea dentro de cada hito.
 
-**Orden:** H0 → H1 → (H2 → H3) en paralelo con H4 → H5 → H6. H3 depende de H2 (las calorías se regeneran al cambiar mediciones). Web se construye antes que mobile.
+**Hitos:** H0 Fundaciones · H1 Usuarios y auth · H2 Mediciones corporales · H3 Calorías (depende de H2) · H4 Rutinas · H5 Endurecimiento. Orden: H0 → H1 → (H2 → H3) en paralelo con H4 → H5.
 
-### Decisiones de diseño ya tomadas
-- **Usuarios:** multiusuario con registro y login. `hevyfit-api-routines` guarda solo el `userId` (claim `sub`), sin llave foránea entre BDs.
-- **Tokens:** access token + refresh token. Los emite `hevyfit-api-measurements`.
-- **Cálculos persistidos, no al vuelo:** cada medición guarda sus derivados (IMC, % y kg de masa magra, masa grasa, FFMI, % de grasa), la altura usada y una `formula_version`. Tendencia, proyección y calorías también se guardan como snapshots en cada cambio.
-- **Edición de mediciones antiguas:** se recalcula esa fila y se **regeneran los snapshots posteriores**, en la misma transacción.
-- **% de grasa:** se calcula automáticamente (por ahora, método US Navy con cuello, cintura y cadera); la entrada manual podría añadirse más adelante.
-- **Circunferencias registradas:** cuello, pecho, cintura, cadera, brazos, antebrazos, muslos y pantorrillas (si van por lado izquierdo/derecho se decide en H2).
-- **Catálogo de ejercicios:** precargado (con categorías) más ejercicios propios del usuario; el diseño debe dejar abierto un maestro de ejercicios administrable.
-- **Unidades e idioma:** sistema métrico y UI en español, con posibilidad de multidioma.
+Etiquetas usadas: `definicion-hu`, `historia-usuario`, `tarea`.
 
 ## Credenciales y secretos
 
