@@ -25,7 +25,7 @@ Cada carpeta mantiene su propio `pom.xml`/`package.json`/`pubspec.yaml` y `.giti
 | Componente | Tecnología | Notas |
 |---|---|---|
 | Web | React + TypeScript + Vite | Gestor de paquetes: **pnpm** (fijado con `packageManager` en `package.json`). Linter: **oxlint** (`pnpm lint`). Formateo: **Prettier** (`pnpm format` / `pnpm format:check`; sin `;`, comillas simples, `printWidth` 100) |
-| APIs | Quarkus (Java) | Build tool: **Maven**. Extensión `quarkus-smallrye-openapi` estándar en todas las APIs (documentación OpenAPI + Swagger UI en `/q/openapi` y `/q/swagger-ui`), para que el frontend pueda consultar/generar clientes de los endpoints rápido |
+| APIs | Quarkus (Java) | Build tool: **Maven**. Extensión `quarkus-smallrye-openapi` estándar en todas las APIs (documentación OpenAPI + Swagger UI en `/q/openapi` y `/q/swagger-ui`, servidos en el puerto de *management* de cada API — ver "Puertos locales de las APIs"), para que el frontend pueda consultar/generar clientes de los endpoints rápido |
 | Mobile | Flutter | Codebase único Dart para Android/iOS (solo esas plataformas; org `com.hevyfit`, paquete Dart `hevyfit_mobile`). Lint con `flutter analyze` (`flutter_lints`), formateo con `dart format` |
 | Librería compartida | Java/Maven (`hevyfit-common`) | Instalación local (`mvn install`); las APIs la consumen como dependencia Maven normal desde el `.m2` local |
 | Base de datos | PostgreSQL | Una instancia local (Docker), con **una base de datos por servicio** (`hevyfit_measurements`, `hevyfit_routines`) |
@@ -81,6 +81,19 @@ docker run -d --name hevyfit-postgres -e POSTGRES_USER=hevyfit -e POSTGRES_PASSW
 ```
 
 > Nota: en Postgres 18+ el volumen se monta en `/var/lib/postgresql` (no en `/var/lib/postgresql/data` como en versiones anteriores); montarlo en la ruta vieja hace que el contenedor falle al iniciar.
+
+## Puertos locales de las APIs
+
+Cada API Quarkus corre con **dos puertos fijos** (no aleatorios) para poder levantar ambas al mismo tiempo en local sin que choquen: uno para la app (`quarkus.http.port`) y otro para el *management interface* (`quarkus.management.enabled=true` + `quarkus.management.port`), donde vive todo lo operativo que no es la API de negocio.
+
+| API | Puerto HTTP (app) | Puerto management |
+|---|---|---|
+| `hevyfit-api-measurements` | `8080` | `9090` |
+| `hevyfit-api-routines` | `8081` | `9091` |
+
+**En el puerto de management, no en el de la app**, quedan `/q/health`, `/q/openapi` y `/q/swagger-ui` — al activar `quarkus.management.enabled` Quarkus mueve ahí todo lo que cuelga de `/q/*`. Por ejemplo, el Swagger UI de mediciones en dev es `http://localhost:9090/q/swagger-ui`, no `http://localhost:8080/q/swagger-ui`.
+
+Definidos en `application.properties` de cada API (no en variables de entorno, porque no son secretos ni cambian entre entornos locales).
 
 ## `hevyfit-common`
 
